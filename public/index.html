@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Erasmus+ ChatLearn Demo</title>
+    <style>
+
+        #welcomeText {
+            padding-left: 8px;
+            padding-right: 8px;
+        }
+
+        #overlay {
+            position: fixed; /* Sit on top of the page content */
+            display: none; /* Hidden by default */
+            width: 100%; /* Full width (cover the whole page) */
+            height: 100%; /* Full height (cover the whole page) */
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0,0,0,0.6); /* Black background with opacity */
+            cursor: default; /* Add a pointer on hover */
+            z-index: 2;
+        }
+
+        #webChatContainer {
+            position: fixed;
+            left: 0;
+            right: 0; /* push the element to right by default */
+            margin-left: auto;
+            margin-right: auto;
+            top: 0;
+            bottom: 0;
+            z-index: 3;
+        }
+
+        #webChatContainer.close {
+            width: 0;
+        }
+
+        #webChatContainer.open {
+            width: 100%;
+        }
+
+        #WACContainer.WACContainer .WebChatStyles {
+            position: relative;
+            transition: right 500ms ease-in-out;
+        }
+
+        #WACContainer.WACContainer .HideWebChat {
+            display: none;
+        }
+
+        #WACContainer.WACContainer .StartOpenAnimation {
+            transition: none;
+            right: -100%;
+        }
+
+        #WACContainer.WACContainer .OpenAnimation {
+            right: 0;
+        }
+
+        #WACContainer.WACContainer .CloseAnimation {
+            right: -100%;
+        }
+
+        @media only screen and (min-width: 1060px) {
+            #webChatContainer {
+                top: 16px;
+                bottom: 16px;
+            }
+
+            #webChatContainer.open {
+                width: 1059px;
+            }
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+</head>
+<body>
+    <div id="welcomeText">
+        <div>
+            <h1>Welcome to develop Erasmus+ ChatLearn Tutor for Project Management!</h1>
+            <p>For better user experience, please use Chrome or Edge.</p>
+            <p>You can start interacting with the tutor by clicking on the blue icon in the bottom right corner and it will provide you with project management learning materials and exercises.</p>
+
+            <h2>About the PM Tutor</h2>
+            <p>We are developing the tutor using IBM Watson and experimenting also OpenAI technology by having the tutor consult the latest GPT-4 model for questions beyond it's scope. Please feel free to ask the tutor anything about project management!</p>
+            <p>As we are experimenting the technology, we anticipate the limitations stated by OpenAI such as producing incorrect answer occasionally. Your feedback on the quality of GPT-4 answer is welcome!</p>
+
+            <h2>Usage and feedback</h2>
+            <p>To protect your chat history from others who use the same machine, it is a good practice to logout after the interaction.</p>
+            <p>If you have feedback or encounter any technical issues, please take a screenshot and provide a description of the issue and send it to <a href="mailto:ville.laakso@student.oulu.fi">Ville</a> or <a href="mailto:da-lun.chen@oulu.fi">Dalun</a>.</p>
+        </div>
+        <div>
+            <a type="button" href="/appid/logout" id="logout">Logout</a>
+        </div>
+    </div>
+
+    <div id="overlay"></div>
+    <div id="webChatContainer" class="close"></div>
+
+
+    <script>
+        const userObj = {
+            userId: null,
+            username: null
+        };
+
+        const customElement = document.querySelector('#webChatContainer');
+
+        function turnOnOverlay() {
+            document.getElementById("overlay").style.display = "block";
+        }
+
+        function turnOffOverlay() {
+            document.getElementById("overlay").style.display = "none";
+        }
+
+        // push the chat window container to right, so it does not prevent clicking on the links in the welcome page
+        function toggleChatWindow() {
+            if (document.getElementById("webChatContainer").classList.contains("close")) {
+                document.querySelector("body").style.overflow = "hidden";
+                document.getElementById("webChatContainer").classList.replace("close", "open");
+            } else {
+                document.getElementById("webChatContainer").classList.replace("open", "close");
+                document.querySelector("body").style.overflow = "revert";
+            }
+        }
+
+        /**
+         * This function is called when web chat is closed. It will trigger the exit animation for web chat and then hide
+         * web chat once the animation is finished.
+         */
+        function closeHandler(event, instance) {
+            // Trigger the animation to slide the main window to the hidden position.
+            instance.elements.getMainWindow().addClassName('CloseAnimation');
+            instance.elements.getMainWindow().removeClassName('OpenAnimation');
+            setTimeout(() => {
+                // After the animation is complete, hide the main window.
+                instance.elements.getMainWindow().addClassName('HideWebChat');
+                instance.elements.getMainWindow().removeClassName('CloseAnimation');
+                toggleChatWindow();
+                turnOffOverlay();
+            }, 500);
+
+        }
+
+        /**
+         * This function is called when web chat is closed. It will un-hide web chat and trigger the entrance animation.
+         */
+        function openHandler(event, instance) {
+            turnOnOverlay();
+            toggleChatWindow();
+            // Move the main window to the off-screen position and then unhide it.
+            instance.elements.getMainWindow().addClassName('StartOpenAnimation');
+            instance.elements.getMainWindow().removeClassName('HideWebChat');
+            setTimeout(() => {
+                // Give the browser a chance to render the off-screen state and then trigger the open animation.
+                instance.elements.getMainWindow().addClassName('OpenAnimation');
+                instance.elements.getMainWindow().removeClassName('StartOpenAnimation');
+            });
+        }
+
+        /**
+         * This is the function that is called when the web chat code has been loaded and it is ready to be rendered.
+         */
+        function onLoad(instance) {
+            instance.render();
+
+            instance.updateUserID(userObj.userId);
+
+            <!-- destroy web chat session when logout -->
+            const logoutBtn = document.getElementById("logout");
+            logoutBtn.addEventListener('click', function clickListener() {
+                instance.destroySession();
+            });
+
+            <!-- update the allowed input length in the textarea -->
+            instance.once({type: 'chat:ready', handler: () => {
+                const messageInput = instance.elements.getMessageInput();
+                messageInput.getHTMLElement().maxLength = 2048;
+            }});
+
+            <!-- set initial context variables -->
+            instance.once({type:"pre:send", handler:setInitialContextVars});
+
+            // Add listeners so we know when web chat has been opened or closed.
+            // See https://web-chat.global.assistant.watson.cloud.ibm.com/docs.html?to=api-events#summary for more about our
+            // events.
+            instance.on({ type: 'window:close', handler: closeHandler });
+            instance.on({ type: 'window:open', handler: openHandler });
+
+            // Hide the main window until it is opened. With session history, it may already be opened (but the window:open
+            // will fire where we will cause the main window to show). Note that we have to hide the main window instead of
+            // webChatContainer because the custom element hosts both the main web chat window and the launcher. If we hide
+            // the entire container, then we will hide the launcher too.
+            instance.elements.getMainWindow().addClassName('HideWebChat')
+            instance.elements.getMainWindow().addClassName('WebChatStyles')
+
+        }
+
+
+        function setInitialContextVars(event) {
+            event.data.context.skills['main skill'] = event.data.context.skills['main skill'] || { user_defined: {} };
+            event.data.context.skills['main skill'].user_defined.user_basic_info = userObj;
+        }
+
+        $().ready(() => {
+            $.get("/user").then((res) => {
+                if (res.sub) {
+                    userObj.userId = res.sub;
+                    userObj.username = res.name;
+                }
+
+                window.watsonAssistantChatOptions = {
+                    // specify a client version to avoid breaking changes in major releases
+                    clientVersion: "7.1.0",
+
+                    // Please consult IBM documentation for locating the required values
+                    integrationID: null, // Replace null with the ID of this integration.
+                    region: null, // Replace null with the region your integration is hosted in.
+                    serviceInstanceID: null, // Replace null with the ID of your service instance.
+
+                    element: customElement,
+
+                    onLoad: onLoad
+                };
+                setTimeout(function(){
+                    const t=document.createElement('script');
+                    t.src="https://web-chat.global.assistant.watson.appdomain.cloud/versions/" + (window.watsonAssistantChatOptions.clientVersion || 'latest') + "/WatsonAssistantChatEntry.js"
+                    document.head.appendChild(t);
+                });
+            });
+        });
+    </script>
+</body>
+</html> 
